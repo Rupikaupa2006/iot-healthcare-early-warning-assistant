@@ -1,0 +1,71 @@
+# ==============================
+# Python
+# ==============================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# ==============================
+# Virtual environments
+# ==============================
+.venv/
+venv/
+env/
+ENV/
+
+# ==============================
+# Environment / secrets
+# ==============================
+.env
+.env.*
+!.env.example
+
+# ==============================
+# Local databases / generated data
+# ==============================
+chroma_db/
+*.sqlite
+*.sqlite3
+
+# ==============================
+# Dataset files
+# Keep the real BIDMC dataset local
+# ==============================
+dataset/bidmc_csv/
+dataset/bidmc_clean.csv
+
+# ==============================
+# Model artifacts
+# Keep locally unless intentionally released
+# ==============================
+*.joblib
+*.pkl
+
+# ==============================
+# Local project backups
+# ==============================
+dashboard_backup.py
+dashboard_before_sync.py
+anomaly/health_analysis_backup.py
+
+# ==============================
+# OS / editor files
+# ==============================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ==============================
+# Logs
+# ==============================
+*.log
+
+# ==============================
+# Temporary files
+# ==============================
+*.tmp
+*.temp
+
+
