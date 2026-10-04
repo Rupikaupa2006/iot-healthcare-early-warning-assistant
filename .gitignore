@@ -39,6 +39,7 @@ dataset/bidmc_csv/
 # Keep locally unless intentionally released
 # ==============================
 *.joblib
+!anomaly/bidmc_isolation_forest.joblib
 *.pkl
 
 # ==============================
