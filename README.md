@@ -448,7 +448,6 @@ The dashboard automatically changes as new observations enter the pipeline rathe
     │   └── train_bidmc_model.py
     │
     ├── dataset/
-    │   ├── bidmc_csv/
     │   ├── bidmc_clean.csv
     │   ├── inspect_bidmc.py
     │   └── preprocess_bidmc.py
@@ -477,15 +476,14 @@ The dashboard automatically changes as new observations enter the pipeline rathe
     ├── requirements.txt
     └── README.md
 
-> The real BIDMC dataset, `.env` file, generated model artifacts, and local vector database are intentionally excluded from version control.
-
+>> The raw BIDMC dataset, `.env` file, and local vector database are excluded from version control. The cleaned dataset and trained Isolation Forest model used by the deployed dashboard are included in the repository.
 ## Installation
 
 ### 1. Clone the Repository
 
-    git clone <YOUR_GITHUB_REPOSITORY_URL>
-    cd "CSE24_939_FAULT DIAGNOSIS ASSISTANT"
-
+    git clone https://github.com/Rupikaupa2006/iot-healthcare-early-warning-assistant.git
+    cd iot-healthcare-early-warning-assistant
+    
 ### 2. Create a Virtual Environment
 
 On Windows:
