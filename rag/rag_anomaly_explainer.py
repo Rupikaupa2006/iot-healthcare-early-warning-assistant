@@ -39,7 +39,7 @@ client = chromadb.PersistentClient(
     path=CHROMA_DIR
 )
 
-collection = client.get_collection(
+collection = client.get_or_create_collection(
     name="healthcare_knowledge"
 )
 

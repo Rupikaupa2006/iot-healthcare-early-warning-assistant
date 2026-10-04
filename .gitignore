@@ -33,7 +33,6 @@ chroma_db/
 # Keep the real BIDMC dataset local
 # ==============================
 dataset/bidmc_csv/
-dataset/bidmc_clean.csv
 
 # ==============================
 # Model artifacts

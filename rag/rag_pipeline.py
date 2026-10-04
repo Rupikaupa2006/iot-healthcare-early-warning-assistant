@@ -94,25 +94,45 @@ def create_chunks(text, source):
 
 def build_knowledge_base():
     """
-    Read all markdown files, create embeddings,
-    clear the old ChromaDB collection, and store
-    the new knowledge chunks.
+    Read all Markdown files, create embeddings,
+    clear the existing ChromaDB collection, and
+    store the new knowledge chunks.
     """
 
+    # --------------------------------------
+    # Check knowledge base directory
+    # --------------------------------------
+
+    if not os.path.isdir(KNOWLEDGE_BASE_DIR):
+
+        raise FileNotFoundError(
+            f"Knowledge base directory not found: "
+            f"{KNOWLEDGE_BASE_DIR}"
+        )
+
+    # --------------------------------------
     # Clear old collection
+    # --------------------------------------
+
     existing = collection.get()
 
     if existing["ids"]:
+
         collection.delete(
             ids=existing["ids"]
         )
 
     print("Old knowledge chunks cleared.")
 
+    # --------------------------------------
     # Read and chunk knowledge files
+    # --------------------------------------
+
     all_chunks = []
 
-    for filename in os.listdir(KNOWLEDGE_BASE_DIR):
+    for filename in sorted(
+        os.listdir(KNOWLEDGE_BASE_DIR)
+    ):
 
         if not filename.endswith(".md"):
             continue
@@ -148,11 +168,15 @@ def build_knowledge_base():
     )
 
     if not all_chunks:
+
         raise ValueError(
             "No knowledge chunks were found."
         )
 
+    # --------------------------------------
     # Prepare data
+    # --------------------------------------
+
     documents = [
         chunk["text"]
         for chunk in all_chunks
@@ -170,7 +194,10 @@ def build_knowledge_base():
         for i in range(len(all_chunks))
     ]
 
+    # --------------------------------------
     # Create embeddings
+    # --------------------------------------
+
     print("\nCreating embeddings...")
 
     embeddings = embedding_model.encode(
@@ -182,7 +209,10 @@ def build_knowledge_base():
         "Embeddings created successfully."
     )
 
+    # --------------------------------------
     # Store in ChromaDB
+    # --------------------------------------
+
     collection.add(
         ids=ids,
         documents=documents,
@@ -203,6 +233,41 @@ def build_knowledge_base():
 
 
 # ==========================================
+# DEPLOYMENT-SAFE INITIALIZATION
+# ==========================================
+
+def ensure_knowledge_base():
+    """
+    Make sure the ChromaDB knowledge collection
+    exists and contains knowledge chunks.
+
+    On a fresh deployment, ChromaDB may be empty.
+    In that case, automatically build the knowledge
+    base from the tracked Markdown files.
+    """
+
+    current_count = collection.count()
+
+    if current_count > 0:
+
+        print(
+            "Knowledge base already initialized."
+        )
+
+        return current_count
+
+    print(
+        "Knowledge base is empty."
+    )
+
+    print(
+        "Building knowledge base from Markdown files..."
+    )
+
+    return build_knowledge_base()
+
+
+# ==========================================
 # RETRIEVE KNOWLEDGE
 # ==========================================
 
@@ -220,15 +285,31 @@ def retrieve_knowledge(
     """
 
     if not query or not query.strip():
+
         return []
+
+    # Make sure a fresh deployment has
+    # an initialized knowledge base.
+    ensure_knowledge_base()
 
     query_embedding = embedding_model.encode(
         [query]
     ).tolist()
 
+    # Do not request more results than
+    # are available in the collection.
+    result_count = min(
+        n_results,
+        collection.count()
+    )
+
+    if result_count <= 0:
+
+        return []
+
     results = collection.query(
         query_embeddings=query_embedding,
-        n_results=n_results
+        n_results=result_count
     )
 
     retrieved = []
@@ -243,7 +324,9 @@ def retrieve_knowledge(
         [[]]
     )[0]
 
-    for i, document in enumerate(documents):
+    for i, document in enumerate(
+        documents
+    ):
 
         source = (
             metadatas[i]["source"]
@@ -324,6 +407,7 @@ def run_retrieval_tests():
         print("=" * 70)
 
         print("QUERY:")
+
         print(query)
 
         print("=" * 70)
@@ -360,12 +444,21 @@ def run_retrieval_tests():
 
 
 # ==========================================
+# INITIALIZE KNOWLEDGE BASE ON IMPORT
+# ==========================================
+
+ensure_knowledge_base()
+
+
+# ==========================================
 # MAIN
 # ==========================================
 
 if __name__ == "__main__":
 
-    build_knowledge_base()
+    print(
+        "\nRunning RAG retrieval tests..."
+    )
 
     run_retrieval_tests()
 
