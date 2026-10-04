@@ -312,6 +312,15 @@ if "llm_explanation" not in st.session_state:
 if "llm_observation_key" not in st.session_state:
     st.session_state.llm_observation_key = None
 
+if "llm_frozen_reading" not in st.session_state:
+    st.session_state.llm_frozen_reading = None
+
+if "llm_frozen_analysis" not in st.session_state:
+    st.session_state.llm_frozen_analysis = None
+
+if "llm_frozen_evidence" not in st.session_state:
+    st.session_state.llm_frozen_evidence = None
+
 
 # ============================================================
 # HERO
@@ -411,6 +420,9 @@ if selection_changed:
     st.session_state.replay_index = min(30, max(1, len(patient_df[patient_df["recording_id"] == selected_recording]) - 1))
     st.session_state.llm_explanation = None
     st.session_state.llm_observation_key = None
+    st.session_state.llm_frozen_reading = None
+    st.session_state.llm_frozen_analysis = None
+    st.session_state.llm_frozen_evidence = None
 
 recording_df = patient_df[patient_df["recording_id"] == selected_recording].copy()
 recording_df = recording_df.sort_values("time").reset_index(drop=True)
@@ -438,6 +450,9 @@ if manual_start != st.session_state.replay_index:
     st.session_state.replay_index = manual_start
     st.session_state.llm_explanation = None
     st.session_state.llm_observation_key = None
+    st.session_state.llm_frozen_reading = None
+    st.session_state.llm_frozen_analysis = None
+    st.session_state.llm_frozen_evidence = None
 
 st.sidebar.caption("Move the slider to jump; otherwise the replay continues automatically.")
 st.sidebar.info("🧠 Mira / Llama 3.2: start Ollama only when you click the AI explanation button.")
@@ -803,22 +818,36 @@ def synchronized_live_pipeline():
     st.subheader("🤖 Mira · HealthSense AI Companion")
     st.html(f"""<div class="ai-companion"><div class="ai-bot"><div class="ai-bot-orbit"></div><div class="ai-bot-face"></div></div><div class="ai-bot-copy"><div class="ai-bot-name">Mira</div><div class="ai-bot-status">GROUNDED LOCAL AI · LLAMA 3.2</div><div class="ai-bot-message">Hi! I can explain this exact observation using the HealthSense analysis and retrieved evidence. I do not diagnose or recommend treatment.</div></div></div>""")
     st.caption(f"Mira receives observation {current_index + 1} / {total_rows} · dataset time {current_time:.0f}s · the same live values shown above.")
-    llm_button = st.button("✨ Ask Mira to explain this observation",type="primary",key=f"llm_button_{selected_recording}_{current_index}",use_container_width=True)
+
+    # Keep the button identity stable while the live replay moves.
+    llm_button = st.button(
+        "✨ Ask Mira to explain this observation",
+        type="primary",
+        key="mira_explanation_button",
+        use_container_width=True,
+    )
 
     if llm_button:
-        llm_current_reading = {
+        # Freeze the exact observation shown when the user clicked Mira.
+        frozen_reading = {
             "patient_id": selected_patient,
             "recording_id": selected_recording,
             "time": current_time,
             **current_values,
         }
 
+        frozen_evidence = llm_safe_evidence(dynamic_rag, evidence)
+
+        st.session_state.llm_frozen_reading = frozen_reading
+        st.session_state.llm_frozen_analysis = analysis
+        st.session_state.llm_frozen_evidence = frozen_evidence
+
         try:
             with st.spinner("Llama 3.2 is generating a grounded explanation…"):
                 llm_result = generate_llm_explanation(
                     analysis,
-                    llm_current_reading,
-                    evidence=llm_safe_evidence(dynamic_rag, evidence),
+                    frozen_reading,
+                    evidence=frozen_evidence,
                 )
 
             if isinstance(llm_result, dict):
@@ -828,7 +857,11 @@ def synchronized_live_pipeline():
 
             if explanation:
                 st.session_state.llm_explanation = explanation
-                st.session_state.llm_observation_key = current_key
+                st.session_state.llm_observation_key = (
+                    frozen_reading["patient_id"],
+                    frozen_reading["recording_id"],
+                    frozen_reading["time"],
+                )
             else:
                 st.warning("Llama returned an empty explanation.")
 
@@ -836,14 +869,30 @@ def synchronized_live_pipeline():
             st.error("Llama explanation generation failed.")
             st.exception(exc)
 
-    if (
-        st.session_state.llm_explanation
-        and st.session_state.llm_observation_key == current_key
-    ):
-        st.html(f"""<div class="chat-bubble"><div class="chat-bubble-label">MIRA · GROUNDED EXPLANATION</div>{escape(str(st.session_state.llm_explanation))}</div>""")
-        st.caption(f"Explanation generated for live observation {current_index + 1}. It uses the retrieved evidence for that observation.")
+    # Mira's explanation belongs to the frozen snapshot, not the moving
+    # live observation.
+    if st.session_state.llm_explanation:
+        frozen_reading = st.session_state.llm_frozen_reading
+
+        st.html(
+            f"""<div class="chat-bubble">
+            <div class="chat-bubble-label">MIRA · GROUNDED EXPLANATION</div>
+            {escape(str(st.session_state.llm_explanation))}
+            </div>"""
+        )
+
+        if frozen_reading:
+            st.caption(
+                f"Explanation generated for observation at "
+                f"{safe_float(frozen_reading['time']):.0f}s "
+                f"({escape(str(frozen_reading['recording_id']))}). "
+                f"It uses the retrieved evidence for that exact observation."
+            )
     else:
-        st.caption("Generate the explanation when you want Llama to interpret this exact live observation. The replay does not call Llama automatically.")
+        st.caption(
+            "Generate the explanation when you want Llama to interpret this "
+            "exact live observation. The replay does not call Llama automatically."
+        )
 
     # --------------------------------------------------------
     # DECISION PIPELINE
@@ -888,6 +937,9 @@ def synchronized_live_pipeline():
         st.session_state.replay_index = 1
         st.session_state.llm_explanation = None
         st.session_state.llm_observation_key = None
+        st.session_state.llm_frozen_reading = None
+        st.session_state.llm_frozen_analysis = None
+        st.session_state.llm_frozen_evidence = None
         st.caption("Replay reached the end of the recording and will restart from observation 2.")
 
 
